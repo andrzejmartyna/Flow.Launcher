@@ -10,6 +10,7 @@ using Flow.Launcher.Plugin.BrowserBookmark.Commands;
 using Flow.Launcher.Plugin.BrowserBookmark.Models;
 using Flow.Launcher.Plugin.BrowserBookmark.Views;
 using Flow.Launcher.Plugin.SharedCommands;
+using Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark;
 
@@ -92,7 +93,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
         if (!topResults)
         {
             // Since we mixed chrome and firefox bookmarks, we should order them again
-            return _cachedBookmarks
+            return BrowserTabsPlugin.InjectExistingTabs(Context.API, _cachedBookmarks
                 .Select(
                     c => new Result
                     {
@@ -112,11 +113,11 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                     }
                 )
                 .Where(r => r.Score > 0)
-                .ToList();
+                .ToList());
         }
         else
         {
-            return _cachedBookmarks
+            return BrowserTabsPlugin.InjectExistingTabs(Context.API, _cachedBookmarks
                 .Select(
                     c => new Result
                     {
@@ -134,7 +135,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         ContextData = new BookmarkAttributes { Url = c.Url }
                     }
                 )
-                .ToList();
+                .ToList());
         }
     }
 
