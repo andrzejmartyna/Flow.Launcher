@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
+﻿using System.Collections.Generic;
 using System.Windows.Automation;
 using static Flow.Launcher.Plugin.BrowserBookmark.Main;
 
@@ -10,47 +8,41 @@ internal static class BrowserTabPlugin
 {
     private static readonly string ClassName = nameof(BrowserTabPlugin);
 
-    public static void OpenBookmarkAndTrack(BrowserTabTracker tabTracker, string url)
+    public static void OpenBookmarkAndTrack(IPublicAPI api, BrowserTabTracker tabTracker, string url)
     {
+        api.LogDebug(ClassName, $"Searching for {url}");
         tabTracker.ExpectUrl(url);
+        api.LogDebug(ClassName, $"Starting {url}");
         Context.API.OpenUrl(url);
+        api.LogDebug(ClassName, $"Started {url}");
     }
 
     public static List<Result> InjectExistingTabs(BrowserTabTracker tabTracker, IPublicAPI api, List<Result> results)
     {
         api.LogDebug(ClassName, "InjectExistingTabs");
 
-        //var allTabsElements = BrowserTabManager.GetAllTabs();
-
-        //var matches = AutomationTabMatcher.MatchTabs(allTabsElements, allTabsUrls);
-        //api.LogInfo(ClassName, "========================= Matches =========================");
-        //foreach (var m in matches)
-        //{
-        //    api.LogInfo(ClassName, $"Map {m.Key.Current.Name}\r\n\ton to {m.Value}");
-        //}
-
         foreach (var r in results)
         {
             var bookmarkUrl = ((BookmarkAttributes)r.ContextData).Url;
-            if (tabTracker.UrlToBrowserTab.TryGetValue(bookmarkUrl, out var tab))
+            if (tabTracker.UrlToBrowserTab.TryGetValue(bookmarkUrl, out var existingTab))
             {
                 api.LogDebug(ClassName, $"Mapped {bookmarkUrl}");
-                //r.Title = tab.Title;
-                
-                ////r.IcoPath = GetBrowserIcoPath(existingTab.BrowserName);
+                //r.Title = existingTab.Title;
+                r.IcoPath = GetBrowserIcoPath(existingTab.BrowserName);
                 
                 //r.Score = titleMatch.Score + browserNameMatch.Score;
                 //r.TitleHighlightData = titleMatch.MatchData;
-                //r.SubTitle = tab.BrowserName;
+                //r.SubTitle = existingTab.BrowserName;
                 
-                ////r.ContextData = existingTab;
-                ///
+                r.ContextData = existingTab;
+
                 r.Action = c =>
                 {
-                    if (!tab.ActivateTab())
+                    if (!existingTab.ActivateTab())
                     {
+                        api.LogError(ClassName, "Failed to activate a tab");
                         tabTracker.Remove(bookmarkUrl);
-                        OpenBookmarkAndTrack(tabTracker, bookmarkUrl);
+                        OpenBookmarkAndTrack(api, tabTracker, bookmarkUrl);
                     }
                     return true;
                 };

@@ -110,7 +110,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         Score = BookmarkLoader.MatchProgram(c, param).Score,
                         Action = _ =>
                         {
-                            BrowserTabPlugin.OpenBookmarkAndTrack(tabTracker, c.Url);
+                            BrowserTabPlugin.OpenBookmarkAndTrack(Context.API, tabTracker, c.Url);
                             return true;
                         },
                         ContextData = new BookmarkAttributes { Url = c.Url }
@@ -133,7 +133,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         Score = 5,
                         Action = _ =>
                         {
-                            BrowserTabPlugin.OpenBookmarkAndTrack(tabTracker, c.Url);
+                            BrowserTabPlugin.OpenBookmarkAndTrack(Context.API, tabTracker, c.Url);
                             return true;
                         },
                         ContextData = new BookmarkAttributes { Url = c.Url }
