@@ -2,12 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Threading;
 using System.Windows.Controls;
 using Flow.Launcher.Plugin.BrowserBookmark.Commands;
 using Flow.Launcher.Plugin.BrowserBookmark.Models;
+using Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 using Flow.Launcher.Plugin.BrowserBookmark.Views;
 using Flow.Launcher.Plugin.SharedCommands;
 
@@ -26,7 +28,9 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
     private static List<Bookmark> _cachedBookmarks = new();
 
     private static bool _initialized = false;
-    
+
+    private readonly BrowserTabTracker tabTracker = new();
+
     public void Init(PluginInitContext context)
     {
         Context = context;
@@ -58,6 +62,8 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
         }
 
         LoadBookmarksIfEnabled();
+
+        tabTracker.Init(context.API);
     }
 
     private static void LoadBookmarksIfEnabled()
@@ -92,7 +98,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
         if (!topResults)
         {
             // Since we mixed chrome and firefox bookmarks, we should order them again
-            return _cachedBookmarks
+            return BrowserTabPlugin.InjectExistingTabs(tabTracker, Context.API, _cachedBookmarks
                 .Select(
                     c => new Result
                     {
@@ -104,19 +110,18 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         Score = BookmarkLoader.MatchProgram(c, param).Score,
                         Action = _ =>
                         {
-                            Context.API.OpenUrl(c.Url);
-
+                            BrowserTabPlugin.OpenBookmarkAndTrack(tabTracker, c.Url);
                             return true;
                         },
                         ContextData = new BookmarkAttributes { Url = c.Url }
                     }
                 )
                 .Where(r => r.Score > 0)
-                .ToList();
+                .ToList());
         }
         else
         {
-            return _cachedBookmarks
+            return BrowserTabPlugin.InjectExistingTabs(tabTracker, Context.API, _cachedBookmarks
                 .Select(
                     c => new Result
                     {
@@ -128,13 +133,13 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         Score = 5,
                         Action = _ =>
                         {
-                            Context.API.OpenUrl(c.Url);
+                            BrowserTabPlugin.OpenBookmarkAndTrack(tabTracker, c.Url);
                             return true;
                         },
                         ContextData = new BookmarkAttributes { Url = c.Url }
                     }
                 )
-                .ToList();
+                .ToList());
         }
     }
 
