@@ -105,7 +105,6 @@ public class BrowserTabTracker : IDisposable
             //    }
             //}
 
-            api.LogDebug(ClassName, "zzzz...");
             //BrowserTabPlugin.DumpElements(mainWindow, null, "TabItem");
             //BrowserTabPlugin.DumpElements(mainWindow, "Tab");
             //BrowserTabPlugin.DumpElements(mainWindow, "EdgeTab");
@@ -126,7 +125,6 @@ public class BrowserTabTracker : IDisposable
 
             api.LogDebug(ClassName, "Start searching...");
             var tabs = mainWindow.FindAll(TreeScope.Descendants, tabCondition);
-            api.LogDebug(ClassName, "Searched");
             if (tabs == null || tabs.Count <= 0)
             {
                 api.LogDebug(ClassName, "No tab found");

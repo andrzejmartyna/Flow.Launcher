@@ -10,11 +10,9 @@ internal static class BrowserTabPlugin
 
     public static void OpenBookmarkAndTrack(IPublicAPI api, BrowserTabTracker tabTracker, string url)
     {
-        api.LogDebug(ClassName, $"Searching for {url}");
         tabTracker.ExpectUrl(url);
-        api.LogDebug(ClassName, $"Starting {url}");
+        api.LogDebug(ClassName, $"Opening... {url}");
         Context.API.OpenUrl(url);
-        api.LogDebug(ClassName, $"Started {url}");
     }
 
     public static List<Result> InjectExistingTabs(BrowserTabTracker tabTracker, IPublicAPI api, List<Result> results)
