@@ -12,6 +12,7 @@ using Flow.Launcher.Plugin.BrowserBookmark.Models;
 using Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 using Flow.Launcher.Plugin.BrowserBookmark.Views;
 using Flow.Launcher.Plugin.SharedCommands;
+using SkiaSharp;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark;
 
@@ -94,7 +95,6 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
 
         // Should top results be returned? (true if no search parameters have been passed)
         var topResults = string.IsNullOrEmpty(param);
-
         if (!topResults)
         {
             // Since we mixed chrome and firefox bookmarks, we should order them again

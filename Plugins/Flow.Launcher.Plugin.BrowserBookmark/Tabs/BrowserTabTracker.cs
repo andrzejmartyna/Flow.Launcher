@@ -214,6 +214,7 @@ public class BrowserTabTracker : IDisposable
                     api.LogDebug(ClassName, $"Registering {urlToBind} as tab: {currentTab.Title}");
                     UrlToBrowserTab[urlToBind] = currentTab;
                     expectedUrl = null; // handled
+                    api.ReQuery();
                 }
             }
         }

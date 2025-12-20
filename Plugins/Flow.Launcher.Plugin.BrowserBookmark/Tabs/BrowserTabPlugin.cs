@@ -17,8 +17,6 @@ internal static class BrowserTabPlugin
 
     public static List<Result> InjectExistingTabs(BrowserTabTracker tabTracker, IPublicAPI api, List<Result> results)
     {
-        api.LogDebug(ClassName, "InjectExistingTabs");
-
         foreach (var r in results)
         {
             var bookmarkUrl = ((BookmarkAttributes)r.ContextData).Url;
