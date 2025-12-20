@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Automation;
 using BrowserTabs;
-using SkiaSharp;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 
@@ -167,14 +166,12 @@ public class BrowserTabTracker : IDisposable
     private void OnFocusChanged(object sender, AutomationFocusChangedEventArgs e)
     {
         string? urlToBind;
-
         lock (sync)
         {
             urlToBind = expectedUrl;
         }
-
         if (urlToBind is null)
-            return; // nic nie oczekujemy
+            return;
 
         try
         {
@@ -199,6 +196,9 @@ public class BrowserTabTracker : IDisposable
 
             api.LogDebug(ClassName, $"The active browser is {process.ProcessName}");
 
+            //HACK to increase probability a new tab will appear in the browser
+            Thread.Sleep(500);
+
             var rootElement = AutomationElement.FromHandle(process.MainWindowHandle);
             if (rootElement == null)
                 return;
@@ -210,10 +210,9 @@ public class BrowserTabTracker : IDisposable
             {
                 lock (sync)
                 {
-                    // register
                     api.LogDebug(ClassName, $"Registering {urlToBind} as tab: {currentTab.Title}");
                     UrlToBrowserTab[urlToBind] = currentTab;
-                    expectedUrl = null; // handled
+                    expectedUrl = null;
                     api.ReQuery();
                 }
             }
