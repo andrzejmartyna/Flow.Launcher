@@ -53,6 +53,10 @@ public class BrowserTabTracker : IDisposable
     {
         lock (sync)
         {
+            if (expectedUrl != null)
+            {
+                api.LogError(ClassName, $"Opening {url} while older is still not resolved ({expectedUrl}). Forgetting the older.");
+            }
             expectedUrl = url;
         }
     }
@@ -119,6 +123,18 @@ public class BrowserTabTracker : IDisposable
             {
                 api.LogDebug(ClassName, $"Start searching for a new tab... Try no {count++}");
 
+                var tabs = mainWindow.FindAll(TreeScope.Descendants, tabCondition);
+                if (_knownTabs.Count <= 0)
+                {
+                    foreach (var tab in tabs)
+                    {
+                        _knownTabs.Add(RuntimeIdToKey((AutomationElement)tab));
+                    }
+                    api.LogDebug(ClassName, "Waiting after filling known tabs list");
+                    Thread.Sleep(_tabRetryInterval);
+                    continue;
+                }
+
                 var focusedTabElement = TryGetFocusedTabFromWindow(mainWindow);
                 if (focusedTabElement != null && !string.IsNullOrWhiteSpace(focusedTabElement.Current.Name))
                 {
@@ -139,7 +155,6 @@ public class BrowserTabTracker : IDisposable
                     };
                 }
 
-                var tabs = mainWindow.FindAll(TreeScope.Descendants, tabCondition);
                 if (tabs == null || tabs.Count <= 0)
                 {
                     api.LogDebug(ClassName, "No tab found");
