@@ -13,9 +13,15 @@ public class BrowserTabTracker : IDisposable
     private static readonly string ClassName = nameof(BrowserTabTracker);
     private static readonly HashSet<string> chromiumProcessNames = new HashSet<string>(new string[6] { "msedge", "chrome", "brave", "vivaldi", "opera", "chromium" }, StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> firefoxProcessNames = new HashSet<string>(new string[1] { "firefox" }, StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _knownTabs = new();
+    private readonly TimeSpan _tabRetryTimeout = TimeSpan.FromSeconds(4);
+    private readonly TimeSpan _tabRetryInterval = TimeSpan.FromMilliseconds(250);
 
     private string? expectedUrl;
     private readonly object sync = new();
+
+    private static string RuntimeIdToKey(int[] id) => string.Join("-", id);
+    private static string RuntimeIdToKey(AutomationElement elem) => elem != null ? $"{RuntimeIdToKey(elem.GetRuntimeId())}-{elem.Current.Name}" : null;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -59,97 +65,139 @@ public class BrowserTabTracker : IDisposable
         }
     }
 
+    private AutomationElement? TryGetFocusedTabFromWindow(AutomationElement mainWindow)
+    {
+        AutomationElement? focused = null;
+        try
+        {
+            focused = AutomationElement.FocusedElement;
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (focused == null)
+            return null;
+
+        var walker = TreeWalker.ControlViewWalker;
+        var current = focused;
+        while (current != null)
+        {
+            if (current.Equals(mainWindow))
+                break;
+            current = walker.GetParent(current);
+        }
+
+        if (current == null || !current.Equals(mainWindow))
+            return null; // focus on a different window/application
+
+        // return to the focused element and go up to TabItem
+        current = focused;
+        while (current != null)
+        {
+            if (current.Current.ControlType == ControlType.TabItem || current.Current.ControlType.ProgrammaticName?.Contains("TabItem") == true)
+            {
+                return current;
+            }
+            current = walker.GetParent(current);
+        }
+        return null;
+    }
+
     private BrowserTab? GetCurrentTabFromWindow(AutomationElement mainWindow, Process process, CancellationToken cancellationToken)
     {
         try
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
-
-            var browserName = process.ProcessName.ToLowerInvariant();
-            var firefox = browserName == "firefox";
-
             Condition tabCondition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem);
 
-            //Condition tabCondition = firefox ?
-            //    //new AndCondition(
-            //        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem)//,
-            //        //new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true)
-            //    //)
-            //:
-            //    new AndCondition(
-            //        new OrCondition(
-            //            new PropertyCondition(AutomationElement.ClassNameProperty, "EdgeTab"),
-            //            new PropertyCondition(AutomationElement.ClassNameProperty, "Tab")
-            //        ),
-            //        new PropertyCondition(AutomationElement.HasKeyboardFocusProperty, true)
-            //    );
+            var sw = Stopwatch.StartNew();
+            BrowserTab? result = null;
+            int count = 1;
 
-            api.LogDebug(ClassName, $"mainWindow: Name='{mainWindow.Current.Name}', " +
-                        $"ClassName='{mainWindow.Current.ClassName}', " +
-                        $"ControlType='{mainWindow.Current.ControlType.ProgrammaticName}', " +
-                        $"IsEnabled={mainWindow.Current.IsEnabled}, " +
-                        $"IsOffscreen={mainWindow.Current.IsOffscreen}");
-
-            //foreach (AutomationElement e in mainWindow.FindAll(TreeScope.Descendants, Condition.TrueCondition))
-            //{
-            //    if (e.Current.ControlType == ControlType.TabItem ||
-            //        e.Current.ControlType.ProgrammaticName?.Contains("TabItem") == true)
-            //    {
-            //        api.LogDebug(ClassName,
-            //            $"[DUMP] CT='{e.Current.ControlType.ProgrammaticName}', " +
-            //            $"Class='{e.Current.ClassName}', Name='{e.Current.Name}'");
-            //    }
-            //}
-
-            //BrowserTabPlugin.DumpElements(mainWindow, null, "TabItem");
-            //BrowserTabPlugin.DumpElements(mainWindow, "Tab");
-            //BrowserTabPlugin.DumpElements(mainWindow, "EdgeTab");
-
-            //var tabs = mainWindow.FindAll(
-            //    TreeScope.Descendants,
-            //    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem));
-
-            //api.LogDebug(ClassName, $"TabItems count: {tabs.Count}");
-
-            //foreach (AutomationElement tab in tabs)
-            //{
-            //    api.LogDebug(ClassName,
-            //        $"Tab: Name='{tab.Current.Name}', Class='{tab.Current.ClassName}', " +
-            //        $"IsKeyboardFocusable={tab.Current.IsKeyboardFocusable}, " +
-            //        $"HasKeyboardFocus={tab.Current.HasKeyboardFocus}");
-            //}
-
-            api.LogDebug(ClassName, "Start searching...");
-            var tabs = mainWindow.FindAll(TreeScope.Descendants, tabCondition);
-            if (tabs == null || tabs.Count <= 0)
+            while (sw.Elapsed < _tabRetryTimeout && !cancellationToken.IsCancellationRequested)
             {
-                api.LogDebug(ClassName, "No tab found");
-                return null;
+                api.LogDebug(ClassName, $"Start searching for a new tab... Try no {count++}");
+
+                var focusedTabElement = TryGetFocusedTabFromWindow(mainWindow);
+                if (focusedTabElement != null && !string.IsNullOrWhiteSpace(focusedTabElement.Current.Name))
+                {
+                    api.LogDebug(ClassName, $"Focused tab via keyboard focus: {focusedTabElement.Current.Name}");
+                    if (_knownTabs.Contains(RuntimeIdToKey(focusedTabElement)))
+                    {
+                        api.LogDebug(ClassName, "... but the tab is an existing one, skipping");
+                        Thread.Sleep(_tabRetryInterval);
+                        continue;
+                    }
+
+                    return new BrowserTab
+                    {
+                        Title = focusedTabElement.Current.Name,
+                        BrowserName = process.ProcessName,
+                        Hwnd = process.MainWindowHandle,
+                        AutomationElement = focusedTabElement
+                    };
+                }
+
+                var tabs = mainWindow.FindAll(TreeScope.Descendants, tabCondition);
+                if (tabs == null || tabs.Count <= 0)
+                {
+                    api.LogDebug(ClassName, "No tab found");
+                }
+                else
+                {
+                    api.LogDebug(ClassName, $"Found tabs: {tabs.Count}");
+
+                    AutomationElement? newTabElement = null;
+                    string? newTabKey = null;
+
+                    // searching from the end in search for a tab not in the cache
+                    for (int i = tabs.Count - 1; i >= 0; i--)
+                    {
+                        var tab = tabs[i];
+                        var name = tab.Current.Name;
+
+                        if (string.IsNullOrWhiteSpace(name))
+                            continue;
+
+                        var key = RuntimeIdToKey(tab);
+                        if (_knownTabs.Contains(key))
+                            continue;
+
+                        newTabElement = tab;
+                        newTabKey = key;
+                        break;
+                    }
+
+                    if (newTabElement != null && newTabKey != null)
+                    {
+                        api.LogDebug(ClassName, $"Found NEW tab: {newTabElement.Current.Name}");
+
+                        _knownTabs.Add(newTabKey);
+
+                        result = new BrowserTab
+                        {
+                            Title = newTabElement.Current.Name,
+                            BrowserName = process.ProcessName,
+                            Hwnd = process.MainWindowHandle,
+                            AutomationElement = newTabElement
+                        };
+
+                        break;
+                    }
+
+                    api.LogDebug(ClassName, "No NEW tab found");
+                }
+
+                Thread.Sleep(_tabRetryInterval);
             }
 
-            api.LogDebug(ClassName, $"Found tabs: {tabs.Count}");
-            var focusedTab = tabs[tabs.Count - 1];
-            if (focusedTab == null)
+            if (result == null)
             {
-                return null;
+                api.LogDebug(ClassName, "Timeout waiting for new tab");
             }
 
-            api.LogDebug(ClassName, $"Found focused tab: {focusedTab.Current.Name}");
-
-            var tabName = focusedTab.Current.Name;
-            if (string.IsNullOrWhiteSpace(tabName))
-                return null;
-
-            return new BrowserTab
-            {
-                Title = tabName,
-                BrowserName = process.ProcessName,
-                Hwnd = process.MainWindowHandle,
-                AutomationElement = focusedTab
-            };
+            return result;
         }
         catch (ElementNotAvailableException ex)
         {
@@ -195,9 +243,6 @@ public class BrowserTabTracker : IDisposable
                 return; // not a browser
 
             api.LogDebug(ClassName, $"The active browser is {process.ProcessName}");
-
-            //HACK to increase probability a new tab will appear in the browser
-            Thread.Sleep(500);
 
             var rootElement = AutomationElement.FromHandle(process.MainWindowHandle);
             if (rootElement == null)
