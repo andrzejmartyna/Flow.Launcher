@@ -15,10 +15,9 @@ public class TabsTracker : IDisposable
     private static readonly HashSet<string> firefoxProcessNames = new HashSet<string>(["firefox"], StringComparer.OrdinalIgnoreCase);
     private readonly TabsWalker _walker = new();
 
-    private string? _expectedUrl;
     private readonly object _sync = new();
-
-    public Dictionary<string, BrowserTab> UrlToBrowserTab { get; } = [];
+    private string? _expectedUrl;
+    private Dictionary<string, BrowserTab> UrlToBrowserTab { get; } = [];
 
     private AutomationFocusChangedEventHandler? _focusHandler;
     private bool _initialized;
@@ -108,15 +107,13 @@ public class TabsTracker : IDisposable
         {
             Context.API.LogDebug(ClassName, $"Searching for... {urlToBind}");
 
-            var element = sender as AutomationElement;
-            if (element is null)
+            if (sender is not AutomationElement element)
                 return;
 
             int pid = element.Current.ProcessId;
             Process? process = null;
             try { process = Process.GetProcessById(pid); }
             catch { /* could disappear */ }
-
             if (process is null)
                 return;
 
@@ -141,6 +138,8 @@ public class TabsTracker : IDisposable
                     Context.API.LogDebug(ClassName, $"Registering {urlToBind} as tab: {currentTab.Title}");
                     UrlToBrowserTab[urlToBind] = currentTab;
                     _expectedUrl = null;
+
+                    // required to take the tab into account by Flow Launcher main UI search window
                     Context.API.ReQuery();
                 }
             }

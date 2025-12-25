@@ -26,6 +26,17 @@ internal class TabsCache
         }
     }
 
+    public void Add(IEnumerable<AutomationElement> tabs)
+    {
+        lock (sync)
+        {
+            foreach (var tab in tabs)
+            {
+                _knownTabs.Add(RuntimeIdToKey(tab));
+            }
+        }
+    }
+
     public bool Contains(AutomationElement tab)
     {
         lock (sync)
