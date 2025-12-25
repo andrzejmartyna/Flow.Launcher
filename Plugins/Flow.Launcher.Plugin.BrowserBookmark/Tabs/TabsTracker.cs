@@ -49,9 +49,6 @@ public class TabsTracker : IDisposable
                     }
                     return true;
                 };
-
-                r.ShowBadge = true;
-                r.BadgeIcoPath = "Images/BrowserTabsPlugin.png";
             }
         }
         return results;
