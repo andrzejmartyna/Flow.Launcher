@@ -1,0 +1,36 @@
+﻿using System.Collections.Generic;
+using System.Windows.Automation;
+
+namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
+
+internal class TabsCache
+{
+    private readonly HashSet<string> _knownTabs = new();
+    private readonly object sync = new();
+
+    private static string RuntimeIdToKey(AutomationElement elem) => elem != null ? string.Join("-", elem.GetRuntimeId()) : "NULL";
+
+    public bool Empty()
+    {
+        lock (sync)
+        {
+            return _knownTabs.Count == 0;
+        }
+    }
+
+    public void Add(AutomationElement tab)
+    {
+        lock (sync)
+        {
+            _knownTabs.Add(RuntimeIdToKey(tab));
+        }
+    }
+
+    public bool Contains(AutomationElement tab)
+    {
+        lock (sync)
+        {
+            return _knownTabs.Contains(RuntimeIdToKey(tab));
+        }
+    }
+}
