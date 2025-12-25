@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Windows.Automation;
 using static Flow.Launcher.Plugin.BrowserBookmark.Main;
 
@@ -61,27 +62,69 @@ internal static class BrowserTabPlugin
             _ => "Images/chromium.png",
         };
     }
-    public static void DumpElements(AutomationElement parent, string classNameOnly = null, string controlTypeOnly = null, int indent = 0)
+    public static void DumpElements(
+        AutomationElement parent,
+        string classNameOnly = null,
+        string controlTypeOnly = null,
+        int indent = 0)
     {
-        var children = parent.FindAll(TreeScope.Children, Condition.TrueCondition);
+        AutomationElementCollection children;
+
+        try
+        {
+            children = parent.FindAll(TreeScope.Children, Condition.TrueCondition);
+        }
+        catch (ElementNotAvailableException ex)
+        {
+            Context.API.LogDebug(ClassName, $"[DumpElements] Parent not available: {ex.Message}");
+            return;
+        }
+
         foreach (AutomationElement child in children)
         {
-            var type = child.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "");
-            var name = child.Current.Name;
-            var dump = true;
-            if (!string.IsNullOrEmpty(classNameOnly) && child.Current.ClassName != classNameOnly)
+            try
             {
-                dump = false;
+                var ct = child.Current.ControlType;
+                var type = ct?.ProgrammaticName?.Replace("ControlType.", "");
+                var name = child.Current.Name;
+                var className = child.Current.ClassName;
+                var isOffscreen = child.Current.IsOffscreen;
+                var isEnabled = child.Current.IsEnabled;
+                var rect = child.Current.BoundingRectangle;
+
+                var dump = true;
+                if (!string.IsNullOrEmpty(classNameOnly) && className != classNameOnly)
+                    dump = false;
+
+                if (!string.IsNullOrEmpty(controlTypeOnly) && type != controlTypeOnly)
+                    dump = false;
+
+                if (dump)
+                {
+                    Context.API.LogDebug(
+                        ClassName,
+                        $"{new string(' ', indent)}" +
+                        $"Type='{type}', " +
+                        $"ClassName='{className}', " +
+                        $"Name='{name}', " +
+                        $"IsOffscreen={isOffscreen}, " +
+                        $"IsEnabled={isEnabled}, " +
+                        $"BoundingRectangle={rect}"
+                    );
+                }
+
+                // rekurencja tylko jeśli element nadal żyje
+                DumpElements(child, classNameOnly, controlTypeOnly, indent + 2);
             }
-            if (!string.IsNullOrEmpty(controlTypeOnly) && type != controlTypeOnly)
+            catch (ElementNotAvailableException ex)
             {
-                dump = false;
+                // Element zniknął w trakcie – ignorujemy i lecimy dalej
+                Context.API.LogDebug(ClassName, $"[DumpElements] Child not available: {ex.Message}");
             }
-            if (dump)
+            catch (Exception ex)
             {
-                Context.API.LogDebug(ClassName, $"{new string(' ', indent)}{type}: {name}");
+                Context.API.LogDebug(ClassName, $"[DumpElements] Unexpected error: {ex}");
             }
-            DumpElements(child, classNameOnly, controlTypeOnly, indent + 2); // recurse
         }
     }
 }

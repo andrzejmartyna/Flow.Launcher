@@ -21,7 +21,8 @@ public class BrowserTabTracker : IDisposable
     private readonly object sync = new();
 
     private static string RuntimeIdToKey(int[] id) => string.Join("-", id);
-    private static string RuntimeIdToKey(AutomationElement elem) => elem != null ? $"{RuntimeIdToKey(elem.GetRuntimeId())}-{elem.Current.Name}" : null;
+    //private static string RuntimeIdToKey(AutomationElement elem) => elem != null ? $"{RuntimeIdToKey(elem.GetRuntimeId())}-{elem.Current.Name}" : null;
+    private static string RuntimeIdToKey(AutomationElement elem) => elem != null ? RuntimeIdToKey(elem.GetRuntimeId()) : null;
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -162,6 +163,7 @@ public class BrowserTabTracker : IDisposable
                 else
                 {
                     api.LogDebug(ClassName, $"Found tabs: {tabs.Count}");
+                    //BrowserTabPlugin.DumpElements(mainWindow, null, "Tab");
 
                     AutomationElement? newTabElement = null;
                     string? newTabKey = null;
@@ -171,13 +173,23 @@ public class BrowserTabTracker : IDisposable
                     {
                         var tab = tabs[i];
                         var name = tab.Current.Name;
+                        var className = tab.Current.ClassName;
 
                         if (string.IsNullOrWhiteSpace(name))
                             continue;
 
+                        // on Chrome, while using Flow Launcher on the browser in the foreground, there may be an invisible tab that should be skipped
+                        if (className.Contains("bolt-tab", StringComparison.OrdinalIgnoreCase))
+                        {
+                            api.LogDebug(ClassName, $"Skipping name='{name}', className='{className}'");
+                            continue;
+                        }
+
                         var key = RuntimeIdToKey(tab);
                         if (_knownTabs.Contains(key))
                             continue;
+
+                        api.LogDebug(ClassName, $"FOUND NEW TAB: name={name}, key={key}, className={className}");
 
                         newTabElement = tab;
                         newTabKey = key;
@@ -186,8 +198,6 @@ public class BrowserTabTracker : IDisposable
 
                     if (newTabElement != null && newTabKey != null)
                     {
-                        api.LogDebug(ClassName, $"Found NEW tab: {newTabElement.Current.Name}");
-
                         _knownTabs.Add(newTabKey);
 
                         result = new BrowserTab
