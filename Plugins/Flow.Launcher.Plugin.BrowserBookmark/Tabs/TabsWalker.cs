@@ -9,6 +9,11 @@ using static Flow.Launcher.Plugin.BrowserBookmark.Main;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 
+/// <summary>
+/// TabsWalker waits for a new browser's tab to appear.
+/// It uses TabsCache to keep known tabs.
+/// Note that browsers don't provide full control over this process, so we have to rely on heuristics and a "best effort" approach.
+/// </summary>
 internal class TabsWalker
 {
     private static readonly string ClassName = nameof(TabsTracker);
@@ -98,17 +103,15 @@ internal class TabsWalker
             }
 
             Context.API.LogDebug(ClassName, "Timeout waiting for new tab");
-            return null;
         }
         catch (ElementNotAvailableException ex)
         {
             Context.API.LogException(ClassName, "Element not available", ex);
-            return null;
         }
         catch (Exception ex)
         {
             Context.API.LogException(ClassName, "Error getting current tab from window", ex);
-            return null;
         }
+        return null;
     }
 }

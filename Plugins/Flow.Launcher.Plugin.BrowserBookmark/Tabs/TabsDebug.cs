@@ -4,6 +4,10 @@ using static Flow.Launcher.Plugin.BrowserBookmark.Main;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 
+/// <summary>
+/// Just for debugging.
+/// Call DumpElements whenever you need to analyze browser's internal structure.
+/// </summary>
 internal class TabsDebug
 {
     private static readonly string ClassName = nameof(TabsDebug);
@@ -62,7 +66,7 @@ internal class TabsDebug
             }
             catch (Exception ex)
             {
-                Context.API.LogDebug(ClassName, $"Unexpected error: {ex}");
+                Context.API.LogException(ClassName, $"Unexpected error", ex);
             }
         }
     }

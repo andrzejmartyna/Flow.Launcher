@@ -3,6 +3,10 @@ using System.Windows.Automation;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 
+/// <summary>
+/// Keeps record of all known browser's tabs.
+/// It is used by TabsWalker to identify new tabs as they appear.
+/// </summary>
 internal class TabsCache
 {
     private readonly HashSet<string> _knownTabs = new();

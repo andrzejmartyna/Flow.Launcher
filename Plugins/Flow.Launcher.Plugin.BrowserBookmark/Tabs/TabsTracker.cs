@@ -8,21 +8,27 @@ using static Flow.Launcher.Plugin.BrowserBookmark.Main;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
 
+/// <summary>
+/// TabsTracker maps initial URLs into existing browser's tabs.
+/// The sequence of events:
+/// 1. OpenUrlAndTrack - before lauching an URL it is remembered for later mapping to a browser's tab
+/// 2. OnFocusChanged - whenever a browser's window gets focused a new tab discovery is started and result is put into the UrlToBrowserTab map
+/// 3. InjectExistingTabs - iterates over BrowserBookmark's query result and replaces OpenUrl with ActivateTab for known, existing tabs
+/// </summary>
 public class TabsTracker : IDisposable
 {
     private static readonly string ClassName = nameof(TabsTracker);
     private static readonly HashSet<string> chromiumProcessNames = new HashSet<string>(["msedge", "chrome", "brave", "vivaldi", "opera", "chromium"], StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> firefoxProcessNames = new HashSet<string>(["firefox"], StringComparer.OrdinalIgnoreCase);
     private readonly TabsWalker _walker = new();
-
-    private readonly object _sync = new();
     private string? _expectedUrl;
     private Dictionary<string, BrowserTab> UrlToBrowserTab { get; } = [];
+    private readonly object _sync = new();
 
     private AutomationFocusChangedEventHandler? _focusHandler;
     private bool _initialized;
 
-    public void OpenBookmarkAndTrack(string url)
+    public void OpenUrlAndTrack(string url)
     {
         ExpectUrl(url);
         Context.API.LogDebug(ClassName, $"Opening... {url}");
@@ -45,7 +51,7 @@ public class TabsTracker : IDisposable
                     {
                         Context.API.LogError(ClassName, "Failed to activate a tab");
                         Remove(bookmarkUrl);
-                        OpenBookmarkAndTrack(bookmarkUrl);
+                        OpenUrlAndTrack(bookmarkUrl);
                     }
                     return true;
                 };
