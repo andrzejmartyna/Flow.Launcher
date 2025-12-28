@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Windows.Automation;
 using BrowserTabs;
+using Flow.Launcher.Plugin.BrowserBookmark.Models;
 using static Flow.Launcher.Plugin.BrowserBookmark.Main;
 
 namespace Flow.Launcher.Plugin.BrowserBookmark.Tabs;
@@ -28,15 +29,22 @@ public class TabsTracker : IDisposable
     private AutomationFocusChangedEventHandler? _focusHandler;
     private bool _initialized;
 
-    public void OpenUrlAndTrack(string url)
+    public void OpenUrlAndTrack(Settings settings, string url)
     {
-        ExpectUrl(url);
-        Context.API.LogDebug(ClassName, $"Opening... {url}");
+        if (settings.ReuseTabs)
+        {
+            Context.API.LogDebug(ClassName, $"Opening... {url}");
+            ExpectUrl(url);
+        }
         Context.API.OpenUrl(url);
     }
 
-    public List<Result> InjectExistingTabs(List<Result> results)
+    public List<Result> InjectExistingTabs(Settings settings, List<Result> results)
     {
+        if (!settings.ReuseTabs)
+        {
+            return results;
+        }
         foreach (var r in results)
         {
             var bookmarkUrl = ((BookmarkAttributes)r.ContextData).Url;
@@ -51,7 +59,7 @@ public class TabsTracker : IDisposable
                     {
                         Context.API.LogError(ClassName, "Failed to activate a tab");
                         Remove(bookmarkUrl);
-                        OpenUrlAndTrack(bookmarkUrl);
+                        OpenUrlAndTrack(settings, bookmarkUrl);
                     }
                     return true;
                 };

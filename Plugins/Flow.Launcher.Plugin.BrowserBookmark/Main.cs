@@ -97,7 +97,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
         if (!topResults)
         {
             // Since we mixed chrome and firefox bookmarks, we should order them again
-            return tabsTracker.InjectExistingTabs(_cachedBookmarks
+            return tabsTracker.InjectExistingTabs(_settings, _cachedBookmarks
                 .Select(
                     c => new Result
                     {
@@ -109,7 +109,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         Score = BookmarkLoader.MatchProgram(c, param).Score,
                         Action = _ =>
                         {
-                            tabsTracker.OpenUrlAndTrack(c.Url);
+                            tabsTracker.OpenUrlAndTrack(_settings, c.Url);
                             return true;
                         },
                         ContextData = new BookmarkAttributes { Url = c.Url }
@@ -120,7 +120,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
         }
         else
         {
-            return tabsTracker.InjectExistingTabs(_cachedBookmarks
+            return tabsTracker.InjectExistingTabs(_settings, _cachedBookmarks
                 .Select(
                     c => new Result
                     {
@@ -132,7 +132,7 @@ public class Main : ISettingProvider, IPlugin, IReloadable, IPluginI18n, IContex
                         Score = 5,
                         Action = _ =>
                         {
-                            tabsTracker.OpenUrlAndTrack(c.Url);
+                            tabsTracker.OpenUrlAndTrack(_settings, c.Url);
                             return true;
                         },
                         ContextData = new BookmarkAttributes { Url = c.Url }
